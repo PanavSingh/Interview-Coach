@@ -1,0 +1,314 @@
+================================================================================
+              INTERVIEWER AI — PROJECT SUMMARY & TECH STACK
+================================================================================
+
+Project Name    : Interviewer AI
+Author          : Panav Singh (panavsingh724@gmail.com)
+GitHub          : github.com/PanavSingh/interview-coach
+Status          : MVP Complete
+
+
+================================================================================
+  PROJECT SUMMARY
+================================================================================
+
+Interviewer AI is an AI-powered mock interview platform built with Django.
+Users select a domain, enter their profile (role, skills, experience), and
+the AI generates personalized interview questions tailored to their background.
+Users can answer by typing or speaking (voice input via mic). Each answer is
+evaluated in real time by AI, which returns a score (1-10) and constructive
+feedback. At the end, a results screen shows per-question scores, feedback,
+and a total score.
+
+User Flow:
+  Login/Register → Domain Selection → Profile Input → AI Interview → Results
+
+Key Capabilities:
+  - AI generates unique questions every session based on user profile
+  - Same domain + different experience = completely different questions
+  - Real-time answer evaluation with score and feedback
+  - Voice-to-text input using browser mic
+  - Data persistence for logged-in users (guest mode also available)
+  - Total score calculation (skipped questions count as 0)
+  - Error handling for empty answers ("Please type an answer or click Skip")
+
+
+================================================================================
+  PROJECT ARCHITECTURE
+================================================================================
+
+The project is split into two Django apps — frontend and backend — within
+a single Django project.
+
+  interview_coach/
+  ├── frontend/                    ← UI Layer (presentation only)
+  │   ├── static/
+  │   │   ├── css/styles.css       ← Complete design system
+  │   │   └── js/interview.js      ← Speech-to-text + live AI feedback
+  │   ├── templates/interview/
+  │   │   ├── base.html            ← Master layout + font imports
+  │   │   ├── login.html           ← Sign in / guest entry
+  │   │   ├── domain.html          ← Domain selection grid
+  │   │   ├── profile.html         ← Role, skills, experience form
+  │   │   ├── interview.html       ← Questions + mic + feedback
+  │   │   └── complete.html        ← Results with scores
+  │   ├── __init__.py
+  │   └── apps.py
+  │
+  ├── backend/                     ← Server Logic (business layer)
+  │   ├── models.py                ← DB models (3 tables)
+  │   ├── views.py                 ← All view functions + API
+  │   ├── ai_service.py            ← AI abstraction (Groq/OpenAI/Gemini)
+  │   ├── urls.py                  ← URL routing (7 endpoints)
+  │   ├── apps.py
+  │   └── migrations/
+  │
+  ├── interview_coach/             ← Django Project Config
+  │   ├── settings.py
+  │   ├── urls.py
+  │   └── wsgi.py
+  │
+  ├── db.sqlite3                   ← SQLite database
+  ├── manage.py
+  ├── requirements.txt
+  ├── .gitignore
+  └── README.md
+
+Why This Split:
+  - Frontend changes (CSS, HTML, JS) never touch backend logic
+  - Backend changes (models, views, AI) never touch UI files
+  - Easier to maintain, test, and scale independently
+
+
+================================================================================
+  FRONTEND TECH STACK
+================================================================================
+
+Language        : HTML5, CSS3, JavaScript (ES6+)
+Templating      : Django Template Language (DTL)
+Styling         : Custom CSS with CSS Variables (zero frameworks)
+Fonts           : Google Fonts — Cormorant Garamond + Outfit
+Design          : Glassmorphism aesthetic, frosted-glass cards
+
+CSS (styles.css — ~350 lines):
+  - CSS custom properties for theming (--bg, --accent, --text, etc.)
+  - Two layout modes: layout-split (two-panel) and layout-single (card)
+  - Responsive breakpoints at 720px and 420px
+  - fadeUp animation for page transitions
+  - No Bootstrap, no Tailwind — fully custom
+
+JavaScript (interview.js):
+  - Vanilla JS only — no React, Vue, jQuery
+  - Web Speech API for voice input (mic button)
+  - Fetch API for AJAX calls to /api/evaluate/
+  - Data passed from Django via hidden input fields
+  - CSRF token handling for secure POST requests
+
+Templates:
+  - base.html is the master template (all pages extend it)
+  - {% load static %} loads CSS/JS from frontend/static/
+  - {% block scripts %} allows per-page JS loading
+
+
+================================================================================
+  BACKEND TECH STACK
+================================================================================
+
+Language        : Python 3.14
+Framework       : Django 5.1
+Database        : SQLite 3 (via Django ORM)
+Auth            : django.contrib.auth (built-in)
+Sessions        : Server-side (django.contrib.sessions.backends.db)
+
+URL Endpoints (7 total):
+  /                → Login / auto-register
+  /logout/         → Session flush + logout
+  /domain/         → Domain selection
+  /profile/        → Profile form → triggers AI question generation
+  /interview/      → Question display + answer submission + AI evaluation
+  /complete/       → Results with scores and feedback
+  /api/evaluate/   → AJAX endpoint for real-time evaluation
+
+Authentication:
+  - First-time sign-in auto-creates User + UserProfile
+  - Returning users authenticate with email/password
+  - Guest mode: session-only, no DB persistence
+  - CSRF protection on all POST requests
+
+Views:
+  - All function-based views (FBVs)
+  - _is_logged_in() helper checks auth + guest status
+  - Flow enforcement: each view redirects if prior steps incomplete
+  - Empty answer validation: "Please type an answer or click Skip"
+
+Middleware Stack:
+  SecurityMiddleware → SessionMiddleware → CommonMiddleware →
+  CsrfViewMiddleware → AuthenticationMiddleware → XFrameOptionsMiddleware
+
+
+================================================================================
+  AI INTEGRATION
+================================================================================
+
+Primary Provider : Groq (FREE — Llama 3.3 70B)
+Fallback 1       : OpenAI (GPT-3.5 Turbo — paid)
+Fallback 2       : Google Gemini (gemini-2.0-flash — free but rate-limited)
+Service File     : backend/ai_service.py
+
+Provider Priority: GROQ_API_KEY → OPENAI_API_KEY → GEMINI_API_KEY
+  (checks env vars in order, uses first one found)
+
+Groq Details:
+  - Model: llama-3.3-70b-versatile
+  - Free tier: 30 requests/minute, no daily limit
+  - Very fast inference (~1-2 seconds)
+  - Get key at: https://console.groq.com/keys
+
+Two Core AI Functions:
+
+  1. generate_questions(domain, role, skills, experience, count=5)
+     - Called when user submits profile
+     - Prompt: "Generate 5 interview questions for {role} in {domain}..."
+     - Returns JSON array of 5 question strings
+     - Different role/skills/experience = different questions every time
+     - Fallback: hardcoded questions per domain if AI unavailable
+
+  2. evaluate_answer(question, answer, domain, role)
+     - Called on each Next click + via AJAX on textarea blur
+     - Prompt: "Evaluate this answer. Return score 1-10 and feedback..."
+     - Returns: {"score": int, "feedback": "string"}
+     - Fallback: {"score": 5, "feedback": "AI temporarily unavailable..."}
+
+How AI + DB Communicate:
+  - They DON'T talk directly — views.py is the middleman
+  - Flow: User submits → views.py calls AI → gets score/feedback →
+    saves to session (for templates) AND to DB (for persistence)
+
+
+================================================================================
+  VOICE PROCESSING (SPEECH-TO-TEXT)
+================================================================================
+
+Technology      : Web Speech API (browser-native, no external service)
+File            : frontend/static/js/interview.js
+Supported       : Chrome, Edge (Chromium-based browsers)
+Cost            : Free — runs entirely in the browser
+
+How It Works:
+  - 🎤 mic button next to "Your answer" label
+  - Click to start → button turns red, "Listening…" status
+  - Click again to stop → returns to default
+  - Speech streams into textarea in real time
+  - Supports continuous recognition with interim results
+  - Falls back gracefully: mic button hidden if browser doesn't support it
+
+Config:
+  - continuous = true (keeps listening until stopped)
+  - interimResults = true (shows partial text while speaking)
+  - lang = 'en-US'
+
+
+================================================================================
+  DATABASE SCHEMA
+================================================================================
+
+Engine: SQLite 3 (file: db.sqlite3)
+ORM: Django ORM
+
+Table: backend_userprofile
+  id              INTEGER     Primary Key
+  user_id         INTEGER     FK → auth_user.id (one-to-one)
+  role            VARCHAR(200)
+  skills          TEXT
+  experience      TEXT
+
+Table: backend_interviewsession
+  id              INTEGER     Primary Key
+  user_id         INTEGER     FK → auth_user.id (one-to-many)
+  domain          VARCHAR(200)
+  role            VARCHAR(200)
+  started_at      DATETIME    Auto-set on creation
+  completed_at    DATETIME    Nullable, set when interview finishes
+  total_questions INTEGER     Default 5
+
+Table: backend_answer
+  id              INTEGER     Primary Key
+  session_id      BIGINT      FK → backend_interviewsession.id
+  question_number INTEGER
+  question_text   TEXT
+  answer_text     TEXT
+  ai_feedback     TEXT
+  ai_score        INTEGER     Nullable (1-10)
+  skipped         BOOLEAN
+  created_at      DATETIME    Auto-set
+
+Relationships:
+  auth_user (1) ←→ (1) backend_userprofile
+  auth_user (1) ←→ (many) backend_interviewsession
+  backend_interviewsession (1) ←→ (many) backend_answer
+
+Data Population Flow:
+  1. Login (first time)  → auth_user + backend_userprofile created
+  2. Profile submit      → userprofile updated + interviewsession created
+  3. Each answer/skip    → backend_answer created with AI score/feedback
+  4. Last question       → interviewsession.completed_at set
+
+Guest Users:
+  - No DB writes at all
+  - Everything stored in Django session (server-side)
+  - Data lost when session expires or user logs out
+
+
+================================================================================
+  SCORING SYSTEM
+================================================================================
+
+  - Each question scored 1-10 by AI (or 0 if skipped/AI unavailable)
+  - Total score = sum of all scores
+  - Max score = total_questions × 10 (e.g., 50 for 5 questions)
+  - Complete screen shows: Total Score (e.g., 32/50)
+  - Per-question breakdown with individual scores and feedback
+  - Skipped questions explicitly shown as "Skipped — scored 0/10"
+
+
+================================================================================
+  DEPENDENCIES
+================================================================================
+
+requirements.txt:
+  Django>=4.2,<5.2          → Web framework
+  openai>=1.0               → OpenAI SDK (optional)
+  google-genai>=1.0         → Google Gemini SDK (optional)
+  groq>=0.4                 → Groq SDK (primary, free)
+
+Frontend: Zero dependencies — no npm, no node_modules, no build step.
+All assets are plain HTML/CSS/JS served by Django's staticfiles.
+
+
+================================================================================
+  ENVIRONMENT VARIABLES
+================================================================================
+
+  GROQ_API_KEY          → Groq API key (primary, free)
+  OPENAI_API_KEY        → OpenAI key (optional, paid)
+  GEMINI_API_KEY        → Google Gemini key (optional, rate-limited)
+  DJANGO_SECRET_KEY     → Django secret (defaults to dev key)
+
+Only ONE AI key is needed. Groq is recommended (free, fast, no daily limit).
+
+
+================================================================================
+  HOW TO RUN
+================================================================================
+
+  cd interview_coach/
+  pip3 install -r requirements.txt
+  python3 manage.py migrate
+  GROQ_API_KEY=<your_key> python3 manage.py runserver 8000
+
+  Open: http://127.0.0.1:8000/
+
+
+================================================================================
+                          END OF DOCUMENT
+================================================================================

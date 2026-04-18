@@ -1,0 +1,67 @@
+{% extends "interview/base.html" %}
+{% block title %}Your Profile — Interviewer AI{% endblock %}
+
+{% block content %}
+<div class="layout-split">
+
+  <div class="panel-left">
+    <div class="wordmark">
+      <div class="wordmark-icon">
+        <svg viewBox="0 0 17 17" fill="none">
+          <circle cx="8.5" cy="6.5" r="3.2" stroke="#2b2622" stroke-width="1.6"/>
+          <path d="M2 16c0-3.6 2.9-5.5 6.5-5.5S15 12.4 15 16" stroke="#2b2622" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="wordmark-text">Interviewer AI</span>
+    </div>
+    <div class="panel-tagline">
+      <h2>Your story is your <em>greatest</em> asset</h2>
+      <p>The more context you give us, the sharper and more relevant your interview questions will be.</p>
+    </div>
+    <div class="panel-steps">
+      <div class="step-item">
+        <div class="step-num active">✓</div>
+        <span class="step-label active">Domain chosen</span>
+      </div>
+      <div class="step-item">
+        <div class="step-num active">2</div>
+        <span class="step-label active">Build your profile</span>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <span class="step-label">Practice interview</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-right">
+    <a href="{% url 'domain' %}" class="back-btn">← Change domain</a>
+
+    <span class="tag">✦ {{ domain }}</span>
+    <h1 class="heading">Your interview <em>profile</em></h1>
+    <p class="sub">Tell us about your background so we can make every question count.</p>
+
+    {% if error %}
+      <div class="alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label class="lbl" for="role">Target role</label>
+        <input type="text" id="role" name="role" placeholder="e.g. Senior Product Manager" value="{{ profile.role|default:'' }}" />
+      </div>
+      <div class="field">
+        <label class="lbl" for="skills">Key skills</label>
+        <textarea id="skills" name="skills" placeholder="e.g. Python, SQL, stakeholder management…">{{ profile.skills|default:'' }}</textarea>
+      </div>
+      <div class="field">
+        <label class="lbl" for="experience">Experience summary</label>
+        <textarea id="experience" name="experience" placeholder="Brief overview of your professional background…">{{ profile.experience|default:'' }}</textarea>
+      </div>
+      <button type="submit" class="btn-primary">Start Interview →</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

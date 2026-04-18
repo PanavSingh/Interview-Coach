@@ -1,0 +1,105 @@
+{% extends "interview/base.html" %}
+{% load static %}
+{% block title %}Question {{ question_number }} — Interviewer AI{% endblock %}
+
+{% block content %}
+<div class="layout-split">
+
+  <div class="panel-left">
+    <div class="wordmark">
+      <div class="wordmark-icon">
+        <svg viewBox="0 0 17 17" fill="none">
+          <circle cx="8.5" cy="6.5" r="3.2" stroke="#2b2622" stroke-width="1.6"/>
+          <path d="M2 16c0-3.6 2.9-5.5 6.5-5.5S15 12.4 15 16" stroke="#2b2622" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="wordmark-text">Interviewer AI</span>
+    </div>
+    <div class="panel-tagline">
+      <h2>Take a breath. <em>Think</em> clearly. Answer well.</h2>
+      <p>There's no rush here. Treat this like the real thing — compose your thoughts before you speak.</p>
+    </div>
+    <div class="panel-steps" style="gap:18px;">
+      <div style="background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.2);border-radius:12px;padding:16px;">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-weight:500;">Domain</div>
+        <div style="font-size:15px;color:#f5f1eb;font-weight:300;">{{ domain }}</div>
+      </div>
+      <div style="background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.2);border-radius:12px;padding:16px;">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-weight:500;">Role</div>
+        <div style="font-size:15px;color:#f5f1eb;font-weight:300;">{{ profile.role }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-right">
+    <a href="{% url 'profile' %}" class="back-btn">← Edit profile</a>
+
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span class="q-label">Question {{ question_number }} of {{ total }}</span>
+        <span class="q-count">{{ percent }}% complete</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: {{ percent }}%;"></div>
+      </div>
+    </div>
+
+    <p class="q-text">{{ question }}</p>
+
+    {% if error %}
+      <div class="alert-error">{{ error }}</div>
+    {% endif %}
+
+    <!-- Hidden inputs for JS to read -->
+    <input type="hidden" id="evaluate-url" value="{% url 'evaluate_api' %}">
+    <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+    <input type="hidden" id="question-text" value="{{ question|escapejs }}">
+
+    <form method="post">
+      {% csrf_token %}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <label class="lbl" for="answer" style="margin-bottom:0;">Your answer</label>
+        <button type="button" id="mic-btn" title="Click to speak" style="
+          background:none;border:1px solid var(--border2);border-radius:50%;
+          width:32px;height:32px;cursor:pointer;display:flex;align-items:center;
+          justify-content:center;transition:all 0.2s;flex-shrink:0;font-size:15px;
+        ">🎤</button>
+        <span id="mic-status" style="font-size:11px;color:var(--hint);"></span>
+      </div>
+      <textarea
+        id="answer"
+        name="answer"
+        placeholder="Type or click the mic to speak your answer…"
+        style="min-height: 160px;"
+        autofocus
+      >{{ prev_feedback.text|default:"" }}</textarea>
+
+      {% if prev_feedback.feedback %}
+      <div style="background:var(--success-bg);border:1px solid rgba(61,140,110,0.2);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--success);margin-bottom:4px;">
+          AI Feedback {% if prev_feedback.score %}· Score: {{ prev_feedback.score }}/10{% endif %}
+        </div>
+        <div style="font-size:13px;color:var(--text);line-height:1.6;">{{ prev_feedback.feedback }}</div>
+      </div>
+      {% endif %}
+
+      <div id="live-feedback" style="display:none;background:var(--success-bg);border:1px solid rgba(61,140,110,0.2);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--success);margin-bottom:4px;">AI Feedback</div>
+        <div id="feedback-text" style="font-size:13px;color:var(--text);line-height:1.6;"></div>
+      </div>
+
+      <div class="btn-row">
+        <button type="submit" name="action" value="next" class="btn-primary">
+          {% if question_number == total %}Finish →{% else %}Next →{% endif %}
+        </button>
+        <button type="submit" name="action" value="skip" class="btn-skip">Skip</button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/interview.js' %}"></script>
+{% endblock %}

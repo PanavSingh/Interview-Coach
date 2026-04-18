@@ -1,0 +1,75 @@
+{% extends "interview/base.html" %}
+{% block title %}Complete — Interviewer AI{% endblock %}
+
+{% block content %}
+<div class="layout-single" style="text-align:center;max-width:560px;">
+
+  <div class="wordmark wordmark-dark" style="justify-content:center;margin-bottom:2.5rem;">
+    <div class="wordmark-icon">
+      <svg viewBox="0 0 17 17" fill="none">
+        <circle cx="8.5" cy="6.5" r="3.2" stroke="#f5f1eb" stroke-width="1.6"/>
+        <path d="M2 16c0-3.6 2.9-5.5 6.5-5.5S15 12.4 15 16" stroke="#f5f1eb" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="wordmark-text">Interviewer AI</span>
+  </div>
+
+  <div class="success-ring">✓</div>
+
+  <h1 class="heading text-center">Interview <em>complete!</em></h1>
+  <p class="sub text-center" style="margin-bottom:1.75rem;">
+    Excellent work making it through all {{ total }} questions for <strong style="color:var(--accent-dk);font-weight:500;">{{ domain }}</strong>.
+  </p>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <span class="stat-num">{{ answered_count }}</span>
+      <span class="stat-lbl">Answered</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">{{ total_score }}/{{ max_score }}</span>
+      <span class="stat-lbl">Total Score</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">{{ domain|truncatechars:10 }}</span>
+      <span class="stat-lbl">Domain</span>
+    </div>
+  </div>
+
+  {% for q in questions %}
+  {% with qn=forloop.counter qn_str=forloop.counter|stringformat:"d" %}
+  <div style="text-align:left;background:rgba(43,38,34,0.04);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;">
+      Question {{ qn }}
+      {% for key, val in answers.items %}
+        {% if key == qn_str %}
+          · Score: {{ val.score|default:"0" }}/10
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div style="font-size:13px;color:var(--text);margin-bottom:6px;font-weight:400;">{{ q }}</div>
+    {% for key, val in answers.items %}
+      {% if key == qn_str %}
+        {% if val.skipped %}
+          <div style="font-size:12px;color:var(--danger);font-style:italic;">Skipped — scored 0/10</div>
+        {% elif val.feedback %}
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;">{{ val.feedback }}</div>
+        {% else %}
+          <div style="font-size:12px;color:var(--hint);font-style:italic;">AI feedback unavailable</div>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endwith %}
+  {% endfor %}
+
+  <form method="post" style="margin-top:1.5rem;">
+    {% csrf_token %}
+    <button type="submit" name="action" value="restart" class="btn-primary">Practice again →</button>
+    <button type="submit" name="action" value="domain" class="btn-ghost">Change domain</button>
+  </form>
+
+  <a href="{% url 'logout' %}" class="back-btn" style="justify-content:center;margin-top:1rem;margin-bottom:0;">Sign out</a>
+
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "interview/base.html" %}
+{% block title %}Choose Domain — Interviewer AI{% endblock %}
+
+{% block content %}
+<div class="layout-split">
+
+  <div class="panel-left">
+    <div class="wordmark">
+      <div class="wordmark-icon">
+        <svg viewBox="0 0 17 17" fill="none">
+          <circle cx="8.5" cy="6.5" r="3.2" stroke="#2b2622" stroke-width="1.6"/>
+          <path d="M2 16c0-3.6 2.9-5.5 6.5-5.5S15 12.4 15 16" stroke="#2b2622" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="wordmark-text">Interviewer AI</span>
+    </div>
+    <div class="panel-tagline">
+      <h2>Master any <em>interview</em> with confidence</h2>
+      <p>Tailored questions, real-time practice, and a space to think clearly before the big day.</p>
+    </div>
+    <div class="panel-steps">
+      <div class="step-item">
+        <div class="step-num active">1</div>
+        <span class="step-label active">Choose your domain</span>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <span class="step-label">Build your profile</span>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <span class="step-label">Practice interview</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-right">
+    <a href="{% url 'logout' %}" class="back-btn">← Sign out</a>
+
+    <h1 class="heading">Choose your <em>domain</em></h1>
+    <p class="sub">Select the field you're interviewing for — we'll tailor every question to your context.</p>
+
+    {% if error %}
+      <div class="alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="domain-grid">
+        {% for d in domains %}
+        <button
+          type="submit"
+          name="domain"
+          value="{{ d.label }}"
+          class="domain-tile {% if selected == d.label %}selected{% endif %}"
+        >
+          <span class="domain-emoji">{{ d.icon }}</span>
+          <span class="domain-name">{{ d.label }}</span>
+          <span class="domain-sub">{{ d.sub }}</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      <label class="lbl" for="custom_domain">Or enter a custom domain</label>
+      <input type="text" id="custom_domain" name="custom_domain" placeholder="e.g. Finance, Legal, Design…" />
+      <button type="submit" name="domain" value="" class="btn-primary">Continue →</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

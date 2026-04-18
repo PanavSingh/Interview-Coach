@@ -1,0 +1,51 @@
+{% extends "interview/base.html" %}
+{% block title %}Sign In — Interviewer AI{% endblock %}
+
+{% block content %}
+<div class="layout-single">
+
+  <div class="wordmark wordmark-dark">
+    <div class="wordmark-icon">
+      <svg viewBox="0 0 17 17" fill="none">
+        <circle cx="8.5" cy="6.5" r="3.2" stroke="#f5f1eb" stroke-width="1.6"/>
+        <path d="M2 16c0-3.6 2.9-5.5 6.5-5.5S15 12.4 15 16" stroke="#f5f1eb" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="wordmark-text">Interviewer AI</span>
+  </div>
+
+  <h1 class="heading">Ready to <em>ace</em><br>your interview?</h1>
+  <p class="sub">Sign in to track your progress and unlock personalised AI-powered feedback on every answer.</p>
+
+  {% if error %}
+    <div class="alert-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="signin">
+    <div class="field">
+      <label class="lbl" for="email">Email address</label>
+      <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label class="lbl" for="password">Password</label>
+      <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button type="submit" class="btn-primary">Sign in →</button>
+  </form>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span class="divider-txt">or</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="guest">
+    <button type="submit" class="btn-ghost">Continue as guest</button>
+  </form>
+
+</div>
+{% endblock %}

@@ -1,0 +1,317 @@
+================================================================================
+                    INTERVIEWER AI — TECH STACK DOCUMENT
+================================================================================
+
+Project Name    : Interviewer AI
+Description     : An AI-powered mock interview platform that generates
+                  personalized questions, accepts voice/text answers, evaluates
+                  responses in real time, and provides constructive feedback
+                  with scoring.
+Architecture    : Monorepo with separated Frontend and Backend Django apps
+Repository      : github.com/PanavSingh/interview-coach
+
+
+================================================================================
+                         TABLE OF CONTENTS
+================================================================================
+
+  1. Project Architecture Overview
+  2. Frontend Tech Stack
+  3. Backend Tech Stack
+  4. AI Integration Layer
+  5. Voice Processing (Speech-to-Text)
+  6. Database & Data Layer
+  7. Development & Tooling
+  8. Dependency Summary
+
+
+================================================================================
+  1. PROJECT ARCHITECTURE OVERVIEW
+================================================================================
+
+The project follows a clean separation of concerns within a single Django
+project. The codebase is split into two Django apps:
+
+  interview_coach/
+  ├── frontend/          → All UI: templates, static CSS, static JS
+  ├── backend/           → All server logic: models, views, AI service, URLs
+  ├── interview_coach/   → Django project configuration (settings, root URLs)
+  ├── manage.py          → Django management entry point
+  ├── db.sqlite3         → SQLite database (auto-generated)
+  └── requirements.txt   → Python dependencies
+
+The frontend app is responsible purely for presentation — HTML templates,
+stylesheets, and client-side JavaScript. It has no models, no views, and no
+business logic.
+
+The backend app owns all server-side logic — user authentication, session
+management, data persistence, AI API calls, and URL routing. Views in the
+backend render templates that live in the frontend app.
+
+This separation ensures that UI changes never touch backend logic and vice
+versa, making the codebase easier to maintain, test, and scale.
+
+
+================================================================================
+  2. FRONTEND TECH STACK
+================================================================================
+
+Language        : HTML5, CSS3, JavaScript (ES6+)
+Templating      : Django Template Language (DTL)
+Styling         : Custom CSS with CSS Variables (no framework)
+Fonts           : Google Fonts — Cormorant Garamond (headings), Outfit (UI)
+Design System   : Glassmorphism aesthetic with frosted-glass cards
+
+  Location: frontend/
+
+  frontend/
+  ├── static/
+  │   ├── css/styles.css        → Complete design system (~350 lines)
+  │   └── js/interview.js       → Speech-to-Text + live AI feedback
+  └── templates/interview/
+      ├── base.html             → Master layout, font imports, static CSS link
+      ├── login.html            → Sign in / guest entry
+      ├── domain.html           → Domain selection grid (6 domains + custom)
+      ├── profile.html          → Role, skills, experience form
+      ├── interview.html        → Question display, answer textarea, mic button
+      └── complete.html         → Results with per-question scores & feedback
+
+CSS Architecture:
+  - All styles extracted into a single static file (styles.css)
+  - CSS custom properties (variables) for theming:
+      --bg, --surface, --accent, --text, --muted, --danger, --success, etc.
+  - Responsive breakpoints at 720px and 420px
+  - Two layout modes:
+      • layout-split  → Two-panel grid (left decorative + right content)
+      • layout-single → Centered single card (login, complete screens)
+  - Animations: fadeUp keyframe for page transitions
+  - No CSS framework (Bootstrap, Tailwind, etc.) — fully custom
+
+JavaScript:
+  - Vanilla JS only — no React, Vue, jQuery, or any framework
+  - interview.js handles two features:
+      1. Web Speech API integration for voice input
+      2. Fetch API calls to /api/evaluate/ for live AI feedback
+  - Data passed from Django to JS via hidden input fields (no inline scripts)
+  - CSRF token handling for secure AJAX POST requests
+
+Template Inheritance:
+  - base.html serves as the master template
+  - All pages extend base.html using {% extends %} and {% block %}
+  - Static files loaded via {% load static %} and {% static %} tags
+
+
+================================================================================
+  3. BACKEND TECH STACK
+================================================================================
+
+Language        : Python 3.14
+Framework       : Django 5.1 (LTS-compatible, version range >=4.2,<5.2)
+Server          : Django development server (manage.py runserver)
+WSGI            : Django's built-in WSGI application
+
+  Location: backend/
+
+  backend/
+  ├── models.py         → Database models (UserProfile, InterviewSession, Answer)
+  ├── views.py          → All view functions (auth, flow, interview, API)
+  ├── ai_service.py     → AI abstraction layer (Gemini/OpenAI)
+  ├── urls.py           → URL routing (7 endpoints)
+  ├── apps.py           → Django app configuration
+  └── migrations/       → Database migration files
+
+URL Endpoints:
+  /                → Login / Register (auto-creates new users)
+  /logout/         → Session flush + Django logout
+  /domain/         → Domain selection (POST to choose)
+  /profile/        → Profile form (triggers AI question generation)
+  /interview/      → Question display + answer submission
+  /complete/       → Results summary with scores and feedback
+  /api/evaluate/   → AJAX JSON endpoint for real-time answer evaluation
+
+Authentication:
+  - Built on django.contrib.auth (User model, authenticate, login, logout)
+  - Auto-registration: first-time sign-in creates a new User + UserProfile
+  - Guest mode: session-based, no database persistence
+  - Session engine: django.contrib.sessions.backends.db (server-side sessions)
+  - CSRF protection on all POST requests
+
+View Logic:
+  - All views are function-based views (FBVs)
+  - Helper function _is_logged_in() checks both auth and guest sessions
+  - Each view enforces flow order (login → domain → profile → interview)
+  - POST handling for form submissions and action dispatching
+  - evaluate_api view decorated with @require_POST for security
+
+Middleware Stack:
+  - SecurityMiddleware        → HTTPS/security headers
+  - SessionMiddleware         → Server-side session management
+  - CommonMiddleware          → URL normalization
+  - CsrfViewMiddleware        → CSRF token validation
+  - AuthenticationMiddleware   → Attaches user to request
+  - XFrameOptionsMiddleware    → Clickjacking protection
+
+
+================================================================================
+  4. AI INTEGRATION LAYER
+================================================================================
+
+Service File    : backend/ai_service.py
+Primary Model   : Google Gemini 1.5 Flash (free tier)
+Fallback Model  : OpenAI GPT-3.5 Turbo (if OPENAI_API_KEY is set)
+Configuration   : Environment variables (never hardcoded)
+
+  GEMINI_API_KEY  → Google Gemini (primary, free)
+  OPENAI_API_KEY  → OpenAI (secondary, paid)
+
+How It Works:
+  - _get_ai_client() checks for API keys in order: OpenAI first, Gemini second
+  - _call_ai(prompt) sends a prompt to whichever provider is configured
+  - Returns raw text response, or None if no provider is available
+
+Two Core Functions:
+
+  1. generate_questions(domain, role, skills, experience, count=5)
+     - Called when user submits their profile
+     - Sends a prompt asking for exactly 5 interview questions tailored to
+       the user's domain, role, skills, and experience
+     - Expects a JSON array of strings in response
+     - Strips markdown code fences if the AI wraps the response
+     - Falls back to hardcoded domain-specific questions if AI is unavailable
+     - Fallback question banks exist for: Technology, Human Resources, and
+       a generic default set
+
+  2. evaluate_answer(question, answer, domain, role)
+     - Called on each answer submission (Next button) and via AJAX (on blur)
+     - Sends the question + answer to AI with instructions to return JSON:
+         { "score": 1-10, "feedback": "2-3 sentences" }
+     - Parses the JSON response, handles markdown fences
+     - Returns { "score": int, "feedback": str }
+     - Falls back to { "score": None, "feedback": "AI unavailable..." }
+
+Google Gemini Details:
+  - Model: gemini-1.5-flash
+  - Free tier: 15 requests/minute, 1500 requests/day
+  - SDK: google-generativeai Python package (v0.5+)
+  - Auth: API key from https://aistudio.google.com/apikey
+
+OpenAI Details (if used):
+  - Model: gpt-3.5-turbo
+  - Temperature: 0.7
+  - Max tokens: 1024
+  - SDK: openai Python package (v1.0+)
+
+
+================================================================================
+  5. VOICE PROCESSING (SPEECH-TO-TEXT)
+================================================================================
+
+Technology      : Web Speech API (browser-native)
+File            : frontend/static/js/interview.js
+Supported       : Google Chrome, Microsoft Edge (Chromium-based browsers)
+
+Implementation:
+  - Uses window.SpeechRecognition or window.webkitSpeechRecognition
+  - Configuration:
+      • continuous = true       → Keeps listening until manually stopped
+      • interimResults = true   → Shows partial transcription in real time
+      • lang = 'en-US'          → English language recognition
+
+User Experience:
+  - A 🎤 mic button sits next to the "Your answer" label
+  - Click to start → button turns red, status shows "Listening…"
+  - Click again to stop → button returns to default state
+  - Speech streams into the textarea as the user talks
+  - Final transcripts accumulate; interim results show live preview
+  - If mic access is denied, a "Mic access denied" message appears
+  - If the browser doesn't support Web Speech API, the mic button is hidden
+
+Why Web Speech API:
+  - Zero cost — runs entirely in the browser
+  - No API key or external service required
+  - No audio data leaves the user's device (processed by browser engine)
+  - Good enough accuracy for interview practice use case
+  - Can be upgraded to OpenAI Whisper API for production-grade accuracy
+
+
+================================================================================
+  6. DATABASE & DATA LAYER
+================================================================================
+
+Engine          : SQLite 3 (Django default)
+File            : db.sqlite3 (project root, gitignored)
+ORM             : Django ORM
+
+Models (backend/models.py):
+
+  1. UserProfile
+     - OneToOne link to Django's built-in User model
+     - Fields: role (CharField), skills (TextField), experience (TextField)
+     - Persists user's interview profile across sessions
+
+  2. InterviewSession
+     - ForeignKey to User (one user can have many sessions)
+     - Fields: domain, role, started_at (auto), completed_at (nullable),
+               total_questions (default 5)
+     - Ordered by most recent first
+     - Tracks each complete interview attempt
+
+  3. Answer
+     - ForeignKey to InterviewSession
+     - Fields: question_number, question_text, answer_text, ai_feedback,
+               ai_score (1-10, nullable), skipped (boolean), created_at
+     - Unique together: (session, question_number)
+     - Stores every answer with its AI evaluation
+
+Data Flow:
+  Guest users    → Data stored in Django sessions only (cookie-backed)
+  Logged-in users → Data persisted to SQLite via Django ORM + sessions
+
+Note: SQLite is used for development. For production deployment, the
+settings.py DATABASES config can be swapped to PostgreSQL or MySQL with
+a single configuration change.
+
+
+================================================================================
+  7. DEVELOPMENT & TOOLING
+================================================================================
+
+Python Version  : 3.14
+Package Manager : pip
+Version Control : Git
+IDE             : VS Code with Amazon Q plugin
+OS              : macOS
+
+Django Management Commands Used:
+  python3 manage.py makemigrations backend   → Generate migration files
+  python3 manage.py migrate                  → Apply migrations to DB
+  python3 manage.py check                    → Validate project configuration
+  python3 manage.py runserver 8000           → Start development server
+
+Environment Variables:
+  GEMINI_API_KEY       → Google Gemini API key (for AI features)
+  OPENAI_API_KEY       → OpenAI API key (optional alternative)
+  DJANGO_SECRET_KEY    → Django secret key (defaults to insecure dev key)
+
+Git Configuration:
+  Author: Panav Singh <panavsingh724@gmail.com>
+  .gitignore excludes: db.sqlite3, __pycache__/, *.pyc, .env, .DS_Store
+
+
+================================================================================
+  8. DEPENDENCY SUMMARY
+================================================================================
+
+requirements.txt:
+
+  Django>=4.2,<5.2          → Web framework (views, ORM, auth, sessions)
+  openai>=1.0               → OpenAI Python SDK (optional, for GPT-3.5)
+  google-generativeai>=0.5  → Google Gemini Python SDK (primary AI provider)
+
+No frontend dependencies — no npm, no node_modules, no build step.
+All frontend assets are plain HTML/CSS/JS served by Django's staticfiles.
+
+
+================================================================================
+                          END OF DOCUMENT
+================================================================================
